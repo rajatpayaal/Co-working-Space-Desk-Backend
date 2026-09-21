@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/appError.js';
 import { AvailabilityService } from '../availability/availability.service.js';
@@ -44,7 +45,7 @@ export class BookingsService {
     const limit = filters.limit && filters.limit > 0 ? filters.limit : 10;
     const skip = (page - 1) * limit;
 
-    const where: any = { userId };
+    const where: Prisma.BookingWhereInput = { userId };
     if (filters.status) {
       where.status = filters.status;
     }
@@ -175,16 +176,17 @@ export class BookingsService {
     const limit = filters.limit && filters.limit > 0 ? filters.limit : 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.BookingWhereInput = {};
 
     if (filters.status) where.status = filters.status;
     if (filters.spaceId) where.spaceId = filters.spaceId;
     if (filters.userId) where.userId = filters.userId;
 
     if (filters.startDate || filters.endDate) {
-      where.startTime = {};
-      if (filters.startDate) where.startTime.gte = new Date(filters.startDate);
-      if (filters.endDate) where.startTime.lte = new Date(filters.endDate);
+      where.startTime = {
+        ...(filters.startDate ? { gte: new Date(filters.startDate) } : {}),
+        ...(filters.endDate ? { lte: new Date(filters.endDate) } : {}),
+      };
     }
 
     const [bookings, total] = await Promise.all([

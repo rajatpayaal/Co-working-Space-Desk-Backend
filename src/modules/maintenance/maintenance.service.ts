@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/appError.js';
 
@@ -8,7 +9,7 @@ export class MaintenanceService {
     const limit = filters.limit && filters.limit > 0 ? filters.limit : 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.MaintenanceWhereInput = {};
     if (filters.spaceId) {
       where.spaceId = filters.spaceId;
     }

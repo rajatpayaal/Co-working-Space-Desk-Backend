@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { AppError } from '../utils/appError.js';
 
 export const globalErrorHandler: ErrorRequestHandler = (
-  err: any,
+  err: Error,
   _req: Request,
   res: Response,
   _next: NextFunction

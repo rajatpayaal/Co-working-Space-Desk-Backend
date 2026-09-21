@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/appError.js';
 
@@ -21,7 +22,7 @@ export class SpacesService {
     const limit = filters.limit && filters.limit > 0 ? filters.limit : 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.SpaceWhereInput = {};
 
     if (filters.isActive !== undefined) {
       where.isActive = filters.isActive;
@@ -35,15 +36,17 @@ export class SpacesService {
     }
 
     if (filters.minCapacity || filters.maxCapacity) {
-      where.capacity = {};
-      if (filters.minCapacity) where.capacity.gte = Number(filters.minCapacity);
-      if (filters.maxCapacity) where.capacity.lte = Number(filters.maxCapacity);
+      where.capacity = {
+        ...(filters.minCapacity ? { gte: Number(filters.minCapacity) } : {}),
+        ...(filters.maxCapacity ? { lte: Number(filters.maxCapacity) } : {}),
+      };
     }
 
     if (filters.minPrice || filters.maxPrice) {
-      where.pricePerHour = {};
-      if (filters.minPrice) where.pricePerHour.gte = Number(filters.minPrice);
-      if (filters.maxPrice) where.pricePerHour.lte = Number(filters.maxPrice);
+      where.pricePerHour = {
+        ...(filters.minPrice ? { gte: Number(filters.minPrice) } : {}),
+        ...(filters.maxPrice ? { lte: Number(filters.maxPrice) } : {}),
+      };
     }
 
     const sortBy = filters.sortBy || 'createdAt';

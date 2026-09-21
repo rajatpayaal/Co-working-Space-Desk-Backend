@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/appError.js';
 
@@ -161,7 +162,7 @@ export class AvailabilityService {
 
   // 14. View Availability Calendar
   static async getCalendar(spaceId?: string, startDateStr?: string, endDateStr?: string) {
-    const where: any = {};
+    const where: Prisma.BookingWhereInput = {};
     if (spaceId) where.spaceId = spaceId;
 
     const startDate = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

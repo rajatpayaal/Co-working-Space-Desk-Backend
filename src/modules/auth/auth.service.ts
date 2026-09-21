@@ -109,9 +109,9 @@ export class AuthService {
     }
 
     const refreshSecret = process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret';
-    let decoded: any;
+    let decoded: jwt.JwtPayload;
     try {
-      decoded = jwt.verify(incomingRefreshToken, refreshSecret);
+      decoded = jwt.verify(incomingRefreshToken, refreshSecret) as jwt.JwtPayload;
     } catch {
       throw new AppError('Invalid or expired refresh token', 401);
     }
