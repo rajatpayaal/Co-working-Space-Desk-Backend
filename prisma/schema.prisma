@@ -1,4 +1,4 @@
-// Prisma Schema file for Coworking Space Desk Backend
+// Prisma Schema for Coworking Space Desk Backend (Neon / PostgreSQL)
 
 generator client {
   provider = "prisma-client-js"
@@ -9,9 +9,63 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum RoleName {
-  ADMIN
-  MEMBER
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  roleId    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  role     Role?     @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  bookings Booking[]
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  action      String   @unique // e.g. "spaces:create", "bookings:approve"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Space {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  capacity     Int
+  pricePerHour Float
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  bookings     Booking[]
+  maintenances Maintenance[]
 }
 
 enum BookingStatus {
@@ -19,33 +73,6 @@ enum BookingStatus {
   APPROVED
   REJECTED
   CANCELLED
-}
-
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      RoleName @default(MEMBER)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  bookings  Booking[]
-}
-
-model Space {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  capacity    Int
-  pricePerHour Float
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  bookings     Booking[]
-  maintenances Maintenance[]
 }
 
 model Booking {
