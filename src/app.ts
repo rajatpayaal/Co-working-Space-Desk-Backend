@@ -5,6 +5,22 @@ import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 
+import { setupSwagger } from './config/swagger.js';
+import { globalLimiter } from './middleware/rateLimit.middleware.js';
+import { globalErrorHandler } from './middleware/errorHandler.middleware.js';
+import { AppError } from './utils/appError.js';
+
+// Feature Module Routers
+import authRoutes from './modules/auth/auth.routes.js';
+import usersRoutes from './modules/users/users.routes.js';
+import rolesRoutes from './modules/roles/roles.routes.js';
+import permissionsRoutes from './modules/permissions/permissions.routes.js';
+import spacesRoutes from './modules/spaces/spaces.routes.js';
+import availabilityRoutes from './modules/availability/availability.routes.js';
+import bookingsRoutes from './modules/bookings/bookings.routes.js';
+import maintenanceRoutes from './modules/maintenance/maintenance.routes.js';
+import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+
 dotenv.config();
 
 const app: Express = express();
@@ -20,10 +36,14 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(globalLimiter);
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
+
+// Initialize Swagger documentation at /api-docs
+setupSwagger(app);
 
 // Health Check Endpoint
 app.get('/health', (_req: Request, res: Response) => {
@@ -33,5 +53,24 @@ app.get('/health', (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+// Mount Feature Modules Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/roles', rolesRoutes);
+app.use('/api/permissions', permissionsRoutes);
+app.use('/api/spaces', spacesRoutes);
+app.use('/api/availability', availabilityRoutes);
+app.use('/api/bookings', bookingsRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+
+// Handle Unhandled Routes
+app.all('*', (req: Request, _res: Response, next) => {
+  next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+});
+
+// Centralized Global Error Handler
+app.use(globalErrorHandler);
 
 export default app;
