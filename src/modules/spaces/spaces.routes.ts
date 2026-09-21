@@ -1,104 +1,41 @@
 import { Router } from 'express';
-import { getSpaces, getSpace, createSpace, updateSpace, deleteSpace } from './spaces.controller.js';
+import {
+  getSpaces,
+  getSpace,
+  createSpace,
+  getAdminSpaces,
+  getAdminSpaceDetail,
+  updateSpace,
+  deleteSpace,
+} from './spaces.controller.js';
 import { authenticateJWT } from '../../middleware/jwt.middleware.js';
 import { requireAdmin } from '../../middleware/rbac.middleware.js';
+import { validateRequest } from '../../middleware/validation.middleware.js';
+import {
+  getSpacesQuerySchema,
+  spaceIdParamSchema,
+  createSpaceSchema,
+  updateSpaceSchema,
+} from './spaces.validation.js';
 
 const router = Router();
 
-/**
- * @openapi
- * /api/spaces:
- *   get:
- *     summary: List co-working spaces (Public / Visitor)
- *     description: Retrieve list of active co-working spaces with search, capacity/price filters, and pagination.
- *     tags:
- *       - Visitor / Public Spaces
- *     parameters:
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search keyword by space name or description
- *       - in: query
- *         name: minCapacity
- *         schema:
- *           type: integer
- *         description: Filter spaces with minimum desk capacity
- *       - in: query
- *         name: maxCapacity
- *         schema:
- *           type: integer
- *         description: Filter spaces with maximum desk capacity
- *       - in: query
- *         name: minPrice
- *         schema:
- *           type: number
- *         description: Minimum price per hour
- *       - in: query
- *         name: maxPrice
- *         schema:
- *           type: number
- *         description: Maximum price per hour
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of items per page
- *       - in: query
- *         name: sortBy
- *         schema:
- *           type: string
- *           enum: [name, pricePerHour, capacity, createdAt]
- *           default: createdAt
- *       - in: query
- *         name: sortOrder
- *         schema:
- *           type: string
- *           enum: [asc, desc]
- *           default: desc
- *     responses:
- *       200:
- *         description: Spaces retrieved successfully with pagination
- */
-router.get('/', getSpaces);
+// Visitor / Public Routes
+router.get('/', validateRequest(getSpacesQuerySchema), getSpaces);
+router.get('/:id', validateRequest(spaceIdParamSchema), getSpace);
+
+// Admin Routes Middleware
+const adminRouter = Router();
+adminRouter.use(authenticateJWT, requireAdmin);
 
 /**
  * @openapi
- * /api/spaces/{id}:
- *   get:
- *     summary: Get space details by ID (Public / Visitor)
- *     description: Retrieve detailed information for a specific co-working space including upcoming maintenance windows.
- *     tags:
- *       - Visitor / Public Spaces
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Unique Space UUID
- *     responses:
- *       200:
- *         description: Space details retrieved successfully
- *       404:
- *         description: Space not found
- */
-router.get('/:id', getSpace);
-
-/**
- * @openapi
- * /api/spaces:
+ * /api/admin/spaces:
  *   post:
- *     summary: Create a new co-working space (Admin only)
+ *     summary: Create a new co-working space (Admin)
+ *     description: Add a new desk space or conference room to the catalog.
  *     tags:
- *       - Admin Space Management
+ *       - Admin Spaces Management
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -114,31 +51,95 @@ router.get('/:id', getSpace);
  *             properties:
  *               name:
  *                 type: string
- *                 example: Deluxe Conference Room B
+ *                 example: Private Executive Suite C
  *               description:
  *                 type: string
- *                 example: High-speed fiber internet with 4K display monitor
+ *                 example: Dedicated 8-person conference room with whiteboards
  *               capacity:
  *                 type: integer
- *                 example: 10
+ *                 example: 8
  *               pricePerHour:
  *                 type: number
- *                 example: 45.0
+ *                 example: 35.0
  *     responses:
  *       201:
  *         description: Space created successfully
+ *       400:
+ *         description: Validation error
  *       403:
  *         description: Forbidden - Admin role required
  */
-router.post('/', authenticateJWT, requireAdmin, createSpace);
+adminRouter.post('/spaces', validateRequest(createSpaceSchema), createSpace);
 
 /**
  * @openapi
- * /api/spaces/{id}:
- *   patch:
- *     summary: Update space details (Admin only)
+ * /api/admin/spaces:
+ *   get:
+ *     summary: List and manage all co-working spaces (Admin)
+ *     description: Retrieve all spaces (active & inactive) with search filters, capacity/price ranges, and pagination.
  *     tags:
- *       - Admin Space Management
+ *       - Admin Spaces Management
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search keyword
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active/deactivated status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: Admin spaces list retrieved successfully
+ */
+adminRouter.get('/spaces', validateRequest(getSpacesQuerySchema), getAdminSpaces);
+
+/**
+ * @openapi
+ * /api/admin/spaces/{id}:
+ *   get:
+ *     summary: Get space details with full history (Admin)
+ *     description: Retrieve space details along with complete maintenance log and booking reservation history.
+ *     tags:
+ *       - Admin Spaces Management
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Space UUID
+ *     responses:
+ *       200:
+ *         description: Admin space details retrieved successfully
+ *       404:
+ *         description: Space not found
+ */
+adminRouter.get('/spaces/:id', validateRequest(spaceIdParamSchema), getAdminSpaceDetail);
+
+/**
+ * @openapi
+ * /api/admin/spaces/{id}:
+ *   patch:
+ *     summary: Update space details (Admin)
+ *     tags:
+ *       - Admin Spaces Management
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -156,6 +157,8 @@ router.post('/', authenticateJWT, requireAdmin, createSpace);
  *             properties:
  *               name:
  *                 type: string
+ *               description:
+ *                 type: string
  *               capacity:
  *                 type: integer
  *               pricePerHour:
@@ -166,15 +169,15 @@ router.post('/', authenticateJWT, requireAdmin, createSpace);
  *       200:
  *         description: Space updated successfully
  */
-router.patch('/:id', authenticateJWT, requireAdmin, updateSpace);
+adminRouter.patch('/spaces/:id', validateRequest(updateSpaceSchema), updateSpace);
 
 /**
  * @openapi
- * /api/spaces/{id}:
+ * /api/admin/spaces/{id}:
  *   delete:
- *     summary: Deactivate co-working space (Admin only)
+ *     summary: Delete / Deactivate co-working space (Admin)
  *     tags:
- *       - Admin Space Management
+ *       - Admin Spaces Management
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -187,6 +190,7 @@ router.patch('/:id', authenticateJWT, requireAdmin, updateSpace);
  *       200:
  *         description: Space deactivated successfully
  */
-router.delete('/:id', authenticateJWT, requireAdmin, deleteSpace);
+adminRouter.delete('/spaces/:id', validateRequest(spaceIdParamSchema), deleteSpace);
 
+export { adminRouter };
 export default router;

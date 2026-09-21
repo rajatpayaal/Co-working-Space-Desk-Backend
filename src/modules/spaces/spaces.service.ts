@@ -15,7 +15,7 @@ export interface SpaceQueryFilters {
 }
 
 export class SpacesService {
-  // 09. List Spaces with Search, Filter & Pagination
+  // List Spaces with Search, Filter & Pagination
   static async getAllSpaces(filters: SpaceQueryFilters = {}) {
     const page = filters.page && filters.page > 0 ? filters.page : 1;
     const limit = filters.limit && filters.limit > 0 ? filters.limit : 10;
@@ -25,8 +25,6 @@ export class SpacesService {
 
     if (filters.isActive !== undefined) {
       where.isActive = filters.isActive;
-    } else {
-      where.isActive = true; // Public listings default to active only
     }
 
     if (filters.search) {
@@ -72,15 +70,20 @@ export class SpacesService {
     };
   }
 
-  // 10. Get Space Details by ID
-  static async getSpaceById(id: string) {
+  // Get Space Details by ID (with admin option for full history)
+  static async getSpaceById(id: string, includeFullHistory: boolean = false) {
     const space = await prisma.space.findUnique({
       where: { id },
       include: {
-        maintenances: {
-          where: { endTime: { gte: new Date() } },
-          select: { id: true, startTime: true, endTime: true, reason: true },
-        },
+        maintenances: includeFullHistory
+          ? { orderBy: { startTime: 'desc' } }
+          : { where: { endTime: { gte: new Date() } } },
+        bookings: includeFullHistory
+          ? {
+              include: { user: { select: { id: true, name: true, email: true } } },
+              orderBy: { createdAt: 'desc' },
+            }
+          : false,
       },
     });
 
@@ -91,6 +94,7 @@ export class SpacesService {
     return space;
   }
 
+  // 20. Create Space (Admin)
   static async createSpace(data: {
     name: string;
     description?: string;
@@ -100,6 +104,7 @@ export class SpacesService {
     return prisma.space.create({ data });
   }
 
+  // 23. Update Space (Admin)
   static async updateSpace(
     id: string,
     data: Partial<{
@@ -117,6 +122,7 @@ export class SpacesService {
     return prisma.space.update({ where: { id }, data });
   }
 
+  // 24. Delete / Deactivate Space (Admin)
   static async deleteSpace(id: string) {
     const space = await prisma.space.findUnique({ where: { id } });
     if (!space) {
