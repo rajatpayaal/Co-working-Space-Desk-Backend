@@ -4,12 +4,25 @@ import { asyncHandler } from '../../utils/asyncHandler.js';
 import { sendResponse } from '../../utils/apiResponse.js';
 import { AuthenticatedRequest } from '../../middleware/jwt.middleware.js';
 
+// 09. GET /api/spaces
 export const getSpaces = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const search = req.query.search as string;
-  const spaces = await SpacesService.getAllSpaces({ isActive: true, search });
-  return sendResponse(res, 200, 'Spaces retrieved successfully', spaces);
+  const result = await SpacesService.getAllSpaces({
+    search: req.query.search as string,
+    minCapacity: req.query.minCapacity ? Number(req.query.minCapacity) : undefined,
+    maxCapacity: req.query.maxCapacity ? Number(req.query.maxCapacity) : undefined,
+    minPrice: req.query.minPrice ? Number(req.query.minPrice) : undefined,
+    maxPrice: req.query.maxPrice ? Number(req.query.maxPrice) : undefined,
+    page: req.query.page ? Number(req.query.page) : 1,
+    limit: req.query.limit ? Number(req.query.limit) : 10,
+    sortBy: req.query.sortBy as string,
+    sortOrder: req.query.sortOrder as 'asc' | 'desc',
+    isActive: true,
+  });
+
+  return sendResponse(res, 200, 'Public spaces list retrieved successfully', result);
 });
 
+// 10. GET /api/spaces/:id
 export const getSpace = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
   const space = await SpacesService.getSpaceById(id);
