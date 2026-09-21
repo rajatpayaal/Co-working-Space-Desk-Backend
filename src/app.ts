@@ -60,13 +60,14 @@ app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/permissions', permissionsRoutes);
 app.use('/api/spaces', spacesRoutes);
+app.use('/api', availabilityRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Handle Unhandled Routes
-app.all('*', (req: Request, _res: Response, next) => {
+app.use((req: Request, _res: Response, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
