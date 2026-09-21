@@ -162,19 +162,24 @@ export class AvailabilityService {
 
   // 14. View Availability Calendar
   static async getCalendar(spaceId?: string, startDateStr?: string, endDateStr?: string) {
-    const where: Prisma.BookingWhereInput = {};
-    if (spaceId) where.spaceId = spaceId;
-
     const startDate = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const endDate = endDateStr ? new Date(endDateStr) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+    const bookingWhere: Prisma.BookingWhereInput = {
+      status: { in: ['APPROVED', 'PENDING'] },
+      startTime: { lte: endDate },
+      endTime: { gte: startDate },
+      ...(spaceId ? { spaceId } : {}),
+    };
+
+    const maintenanceWhere: Prisma.MaintenanceWhereInput = {
+      startTime: { lte: endDate },
+      endTime: { gte: startDate },
+      ...(spaceId ? { spaceId } : {}),
+    };
+
     const bookings = await prisma.booking.findMany({
-      where: {
-        ...where,
-        status: { in: ['APPROVED', 'PENDING'] },
-        startTime: { lte: endDate },
-        endTime: { gte: startDate },
-      },
+      where: bookingWhere,
       select: {
         id: true,
         spaceId: true,
@@ -186,11 +191,7 @@ export class AvailabilityService {
     });
 
     const maintenances = await prisma.maintenance.findMany({
-      where: {
-        ...where,
-        startTime: { lte: endDate },
-        endTime: { gte: startDate },
-      },
+      where: maintenanceWhere,
       select: {
         id: true,
         spaceId: true,
