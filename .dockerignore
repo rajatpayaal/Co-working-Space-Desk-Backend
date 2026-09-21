@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+coverage
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+.github
+workflow
+Dockerfile
+docker-compose.yml
+npm-debug.log
+yarn-debug.log
+.vscode
+.idea
