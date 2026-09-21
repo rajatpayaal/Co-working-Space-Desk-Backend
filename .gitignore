@@ -13,6 +13,9 @@ node_modules/
 .env.production
 .env.production.local
 
+# API Documentation / Specs Folder
+api/
+
 # Production build outputs
 dist/
 build/

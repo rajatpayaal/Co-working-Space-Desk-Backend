@@ -15,9 +15,9 @@ import authRoutes from './modules/auth/auth.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import rolesRoutes from './modules/roles/roles.routes.js';
 import permissionsRoutes from './modules/permissions/permissions.routes.js';
-import spacesRoutes from './modules/spaces/spaces.routes.js';
+import spacesRoutes, { adminRouter as adminSpacesRouter } from './modules/spaces/spaces.routes.js';
 import availabilityRoutes from './modules/availability/availability.routes.js';
-import bookingsRoutes from './modules/bookings/bookings.routes.js';
+import bookingsRoutes, { adminBookingsRouter } from './modules/bookings/bookings.routes.js';
 import maintenanceRoutes from './modules/maintenance/maintenance.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 
@@ -60,9 +60,11 @@ app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/permissions', permissionsRoutes);
 app.use('/api/spaces', spacesRoutes);
+app.use('/api/admin', adminSpacesRouter);
+app.use('/api/admin', adminBookingsRouter);
 app.use('/api', availabilityRoutes);
 app.use('/api/availability', availabilityRoutes);
-app.use('/api/bookings', bookingsRoutes);
+app.use('/api', bookingsRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
