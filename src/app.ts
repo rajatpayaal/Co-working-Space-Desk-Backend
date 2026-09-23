@@ -26,10 +26,26 @@ dotenv.config();
 const app: Express = express();
 
 // Global Middlewares
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
+
+const defaultOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://co-working-space-desk-backend.vercel.app',
+];
+const envOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : [];
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*') || origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   })
 );
@@ -44,6 +60,19 @@ if (process.env.NODE_ENV === 'development') {
 
 // Initialize Swagger documentation at /api-docs
 setupSwagger(app);
+
+// Root Landing Endpoint
+app.get('/', (_req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Welcome to Co-working Space Desk Reservation API',
+    productionUrl: 'https://co-working-space-desk-backend.vercel.app',
+    documentation: '/api-docs',
+    health: '/health',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Health Check Endpoint
 app.get('/health', (_req: Request, res: Response) => {

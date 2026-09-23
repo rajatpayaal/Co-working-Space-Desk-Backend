@@ -1,6 +1,10 @@
 # Co-working Space Desk Reservation API — Request & Response Specification (51 APIs)
 
-This document provides sample HTTP Requests and Responses for all **51 APIs** built in the project. You can test these endpoints using **Swagger UI** (`http://localhost:5000/api-docs`), **Postman**, or **curl**.
+This document provides sample HTTP Requests and Responses for all **51 APIs** built in the project. You can test these endpoints using:
+- **Production URL**: `https://co-working-space-desk-backend.vercel.app`
+- **Swagger UI (Production)**: `https://co-working-space-desk-backend.vercel.app/api-docs`
+- **Local Dev Server**: `http://localhost:5000`
+- **Swagger UI (Local)**: `http://localhost:5000/api-docs`
 
 ---
 

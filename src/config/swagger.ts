@@ -16,7 +16,14 @@ const options: swaggerJSDoc.Options = {
     },
     servers: [
       {
-        url: 'http://localhost:5000',
+        url:
+          process.env.BACKEND_URL ||
+          process.env.API_BASE_URL ||
+          'https://co-working-space-desk-backend.vercel.app',
+        description: 'Production Server (Vercel)',
+      },
+      {
+        url: `http://localhost:${process.env.PORT || 5000}`,
         description: 'Local Development Server',
       },
     ],
@@ -47,9 +54,18 @@ const options: swaggerJSDoc.Options = {
 
 const swaggerSpec = swaggerJSDoc(options);
 
+const swaggerUiOptions = {
+  customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css',
+  customJs: [
+    'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.js',
+  ],
+  customSiteTitle: 'Co-working Space Desk Reservation API Docs',
+};
+
 export const setupSwagger = (app: Express): void => {
   // Swagger Page
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 
   // Docs in JSON format
   app.get('/api-docs.json', (_req, res) => {
