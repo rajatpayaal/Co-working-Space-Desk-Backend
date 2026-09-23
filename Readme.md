@@ -1,6 +1,18 @@
 # Co-working Space Desk Reservation Backend
 
 Robust, scalable REST API service for managing co-working spaces, desk reservations, user management, and administrative operations. Built with Express.js, TypeScript, and Prisma ORM, deployed on Vercel Serverless.
+### 🔑 Demo Credentials
+
+To evaluate the application roles and permission flows, you can use the seeded test accounts:
+
+* **Admin Account:**
+* **Email:** `admin@coworking.com`
+* **Password:** `Admin@123`
+
+
+* **Member Account:**
+* **Email:** `member@coworking.com`
+* **Password:** `Member@123`
 
 ## 🚀 Live Production Deployment
 
