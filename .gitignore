@@ -15,7 +15,7 @@ node_modules/
 
 # API Documentation / Specs Folder
 api/
-
+tests/
 # Production build outputs
 dist/
 build/
