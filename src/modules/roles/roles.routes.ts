@@ -1,5 +1,13 @@
 import { Router } from 'express';
-import { getRoles, createRole, getRole, updateRole, deleteRole } from './roles.controller.js';
+import {
+  getRoles,
+  createRole,
+  getRole,
+  updateRole,
+  deleteRole,
+  getRolePermissions,
+  setRolePermissions,
+} from './roles.controller.js';
 import { authenticateJWT } from '../../middleware/jwt.middleware.js';
 import { requireAdmin } from '../../middleware/rbac.middleware.js';
 import { validateRequest } from '../../middleware/validation.middleware.js';
@@ -139,5 +147,11 @@ router.patch('/:id', validateRequest(updateRoleSchema), updateRole);
  *         description: Role deleted successfully
  */
 router.delete('/:id', validateRequest(roleIdParamSchema), deleteRole);
+
+// GET /api/admin/roles/:id/permissions
+router.get('/:id/permissions', validateRequest(roleIdParamSchema), getRolePermissions);
+
+// PUT /api/admin/roles/:id/permissions — full replacement
+router.put('/:id/permissions', validateRequest(roleIdParamSchema), setRolePermissions);
 
 export default router;

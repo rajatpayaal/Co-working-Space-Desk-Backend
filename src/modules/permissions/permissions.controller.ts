@@ -5,8 +5,13 @@ import { sendResponse } from '../../utils/apiResponse.js';
 import { AuthenticatedRequest } from '../../middleware/jwt.middleware.js';
 
 // 44. GET /api/admin/permissions
-export const getPermissions = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
-  const permissions = await PermissionsService.getAllPermissions();
+export const getPermissions = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const permissions = await PermissionsService.getAllPermissions({
+    search: req.query.search as string | undefined,
+    module: req.query.module as string | undefined,
+    page: req.query.page ? Number(req.query.page) : 1,
+    limit: req.query.limit ? Number(req.query.limit) : 100,
+  });
   return sendResponse(res, 200, 'Permissions retrieved successfully', permissions);
 });
 
