@@ -4,6 +4,16 @@ import crypto from 'crypto';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/appError.js';
 
+// Helper: fetch user's permissions list from their role
+async function getUserPermissions(roleId: string | null): Promise<string[]> {
+  if (!roleId) return [];
+  const rolePerms = await prisma.rolePermission.findMany({
+    where: { roleId },
+    include: { permission: { select: { action: true } } },
+  });
+  return rolePerms.map((rp) => rp.permission.action);
+}
+
 export class AuthService {
   private static generateTokens(user: { id: string; email: string; role?: string }) {
     const accessSecret = process.env.JWT_SECRET || 'fallback_jwt_secret';
@@ -25,11 +35,14 @@ export class AuthService {
   }
 
   // 01. Register
-  static async register(data: { name: string; email: string; password: string }) {
+  static async register(data: { name: string; email: string; password: string; phone?: string }) {
     const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
     if (existingUser) {
       throw new AppError('Email address is already registered', 400);
     }
+
+    // Find default MEMBER role
+    const memberRole = await prisma.role.findFirst({ where: { name: 'MEMBER' } });
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const user = await prisma.user.create({
@@ -37,17 +50,19 @@ export class AuthService {
         name: data.name,
         email: data.email,
         password: hashedPassword,
+        phone: data.phone,
+        roleId: memberRole?.id ?? null,
       },
     });
 
-    const tokens = this.generateTokens({ id: user.id, email: user.email });
+    const tokens = this.generateTokens({ id: user.id, email: user.email, role: 'MEMBER' });
     await prisma.user.update({
       where: { id: user.id },
       data: { refreshToken: tokens.refreshToken },
     });
 
     return {
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, role: 'MEMBER' },
       ...tokens,
     };
   }
@@ -75,8 +90,17 @@ export class AuthService {
       data: { refreshToken: tokens.refreshToken },
     });
 
+    const permissions = await getUserPermissions(user.roleId);
+
     return {
-      user: { id: user.id, name: user.name, email: user.email, role: roleName },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: roleName,
+        permissions,
+      },
       ...tokens,
     };
   }
@@ -89,9 +113,11 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        phone: true,
         isActive: true,
         createdAt: true,
-        role: true,
+        roleId: true,
+        role: { select: { id: true, name: true, description: true } },
       },
     });
 
@@ -99,7 +125,18 @@ export class AuthService {
       throw new AppError('User profile not found', 404);
     }
 
-    return user;
+    const permissions = await getUserPermissions(user.roleId);
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      role: user.role?.name ?? null,
+      permissions,
+    };
   }
 
   // 04. Refresh Token
@@ -145,13 +182,13 @@ export class AuthService {
   }
 
   // 06. Change Password
-  static async changePassword(userId: string, data: { oldPassword: string; newPassword: string }) {
+  static async changePassword(userId: string, data: { currentPassword: string; newPassword: string }) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
-    const isPasswordValid = await bcrypt.compare(data.oldPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(data.currentPassword, user.password);
     if (!isPasswordValid) {
       throw new AppError('Current password is incorrect', 400);
     }
@@ -167,7 +204,6 @@ export class AuthService {
   static async forgotPassword(email: string) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      // Return true to avoid user enumeration security vulnerability
       return { message: 'If email exists, reset token link has been generated.' };
     }
 
@@ -176,10 +212,7 @@ export class AuthService {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: {
-        resetPasswordToken: resetToken,
-        resetPasswordExpires,
-      },
+      data: { resetPasswordToken: resetToken, resetPasswordExpires },
     });
 
     return {
