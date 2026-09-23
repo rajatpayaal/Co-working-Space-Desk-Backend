@@ -1,11 +1,9 @@
-import http from 'http';
 import app from '../src/app.js';
 
 process.env.NODE_ENV = 'test';
 const PORT = 5099;
 const BASE_URL = `http://localhost:${PORT}`;
 
-let server: http.Server;
 let adminToken = '';
 let memberToken = '';
 let sampleSpaceId = '';
@@ -15,6 +13,19 @@ let createdRoleId = '';
 let createdMaintenanceId = '';
 let targetUserId = '';
 let testPermissionId = '';
+
+interface ApiResponseBody {
+  status?: string;
+  message?: string;
+  data?: {
+    id?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    data?: Array<{ id: string; [key: string]: unknown }>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
 
 interface TestResult {
   category: string;
@@ -34,7 +45,7 @@ async function api(
   endpoint: string,
   body?: unknown,
   token?: string
-): Promise<{ status: number; data: any }> {
+): Promise<{ status: number; data: ApiResponseBody | null }> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -48,9 +59,9 @@ async function api(
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  let data: any = null;
+  let data: ApiResponseBody | null;
   try {
-    data = await res.json();
+    data = (await res.json()) as ApiResponseBody;
   } catch {
     data = null;
   }
@@ -491,7 +502,7 @@ async function runTests() {
   }
 }
 
-server = app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   try {
     await runTests();
   } catch (err) {
