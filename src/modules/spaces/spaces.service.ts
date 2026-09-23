@@ -4,15 +4,26 @@ import { AppError } from '../../utils/appError.js';
 
 export interface SpaceQueryFilters {
   search?: string;
+  type?: string;
+  capacity?: number;
   minCapacity?: number;
   maxCapacity?: number;
   minPrice?: number;
   maxPrice?: number;
+  date?: string;
   page?: number;
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
+}
+
+// Helper: compute a price alias and map response to match spec fields
+function mapSpace(space: Record<string, unknown>) {
+  return {
+    ...space,
+    price: space.pricePerHour,
+  };
 }
 
 export class SpacesService {
@@ -28,18 +39,26 @@ export class SpacesService {
       where.isActive = filters.isActive;
     }
 
+    if (filters.type) {
+      where.type = { equals: filters.type, mode: 'insensitive' };
+    }
+
     if (filters.search) {
       where.OR = [
         { name: { contains: filters.search, mode: 'insensitive' } },
         { description: { contains: filters.search, mode: 'insensitive' } },
+        { location: { contains: filters.search, mode: 'insensitive' } },
       ];
     }
 
-    if (filters.minCapacity || filters.maxCapacity) {
-      where.capacity = {
-        ...(filters.minCapacity ? { gte: Number(filters.minCapacity) } : {}),
-        ...(filters.maxCapacity ? { lte: Number(filters.maxCapacity) } : {}),
-      };
+    const capacityFilter = filters.capacity
+      ? { gte: Number(filters.capacity) }
+      : {
+          ...(filters.minCapacity ? { gte: Number(filters.minCapacity) } : {}),
+          ...(filters.maxCapacity ? { lte: Number(filters.maxCapacity) } : {}),
+        };
+    if (Object.keys(capacityFilter).length) {
+      where.capacity = capacityFilter;
     }
 
     if (filters.minPrice || filters.maxPrice) {
@@ -49,7 +68,8 @@ export class SpacesService {
       };
     }
 
-    const sortBy = filters.sortBy || 'createdAt';
+    const allowedSortFields = ['name', 'pricePerHour', 'capacity', 'createdAt'];
+    const sortBy = allowedSortFields.includes(filters.sortBy ?? '') ? filters.sortBy! : 'createdAt';
     const sortOrder = filters.sortOrder || 'desc';
 
     const [spaces, total] = await Promise.all([
@@ -63,7 +83,7 @@ export class SpacesService {
     ]);
 
     return {
-      spaces,
+      data: spaces.map(mapSpace),
       pagination: {
         total,
         page,
@@ -73,7 +93,7 @@ export class SpacesService {
     };
   }
 
-  // Get Space Details by ID (with admin option for full history)
+  // Get Space Details by ID
   static async getSpaceById(id: string, includeFullHistory: boolean = false) {
     const space = await prisma.space.findUnique({
       where: { id },
@@ -94,27 +114,41 @@ export class SpacesService {
       throw new AppError('Co-working space not found', 404);
     }
 
-    return space;
+    return mapSpace(space as unknown as Record<string, unknown>);
   }
 
-  // 20. Create Space (Admin)
+  // Create Space (Admin)
   static async createSpace(data: {
     name: string;
+    type?: string;
     description?: string;
     capacity: number;
     pricePerHour: number;
+    priceUnit?: string;
+    location?: string;
+    amenities?: string[];
+    images?: string[];
+    rules?: string[];
+    isActive?: boolean;
   }) {
-    return prisma.space.create({ data });
+    const space = await prisma.space.create({ data });
+    return mapSpace(space as unknown as Record<string, unknown>);
   }
 
-  // 23. Update Space (Admin)
+  // Update Space (Admin)
   static async updateSpace(
     id: string,
     data: Partial<{
       name: string;
+      type: string;
       description: string;
       capacity: number;
       pricePerHour: number;
+      priceUnit: string;
+      location: string;
+      amenities: string[];
+      images: string[];
+      rules: string[];
       isActive: boolean;
     }>
   ) {
@@ -122,10 +156,11 @@ export class SpacesService {
     if (!space) {
       throw new AppError('Space not found', 404);
     }
-    return prisma.space.update({ where: { id }, data });
+    const updated = await prisma.space.update({ where: { id }, data });
+    return mapSpace(updated as unknown as Record<string, unknown>);
   }
 
-  // 24. Delete / Deactivate Space (Admin)
+  // Delete / Deactivate Space (Admin)
   static async deleteSpace(id: string) {
     const space = await prisma.space.findUnique({ where: { id } });
     if (!space) {

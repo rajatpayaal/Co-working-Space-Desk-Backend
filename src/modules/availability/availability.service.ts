@@ -2,10 +2,46 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/appError.js';
 
+// Helper: convert "HH:MM" time string + "YYYY-MM-DD" date string to a full Date
+function combineDateAndTime(dateStr: string, timeStr: string): Date {
+  const dt = new Date(`${dateStr}T${timeStr}:00.000Z`);
+  if (isNaN(dt.getTime())) {
+    throw new AppError(`Invalid date/time combination: ${dateStr} ${timeStr}`, 400);
+  }
+  return dt;
+}
+
+// Helper: format a Date to "HH:MM"
+function toHHMM(d: Date): string {
+  return d.toISOString().substring(11, 16);
+}
+
 export class AvailabilityService {
-  // 11. Check Space Availability
-  static async checkAvailability(spaceId: string, startTime: Date, endTime: Date) {
-    if (new Date(startTime) >= new Date(endTime)) {
+  // 11. Check Space Availability — accepts full DateTime OR {date, startTime, endTime} strings
+  static async checkAvailability(
+    spaceId: string,
+    startTimeOrDate: Date | string,
+    endTimeOrTime: Date | string,
+    endTimeParam?: string
+  ) {
+    let startTime: Date;
+    let endTime: Date;
+
+    // Support {date, startTime, endTime} string format from POST /availability/check
+    if (typeof startTimeOrDate === 'string' && typeof endTimeOrTime === 'string' && endTimeParam) {
+      // Called as checkAvailabilityFromStrings(spaceId, date, startTime, endTime)
+      startTime = combineDateAndTime(startTimeOrDate, endTimeOrTime);
+      endTime = combineDateAndTime(startTimeOrDate, endTimeParam);
+    } else if (startTimeOrDate instanceof Date && endTimeOrTime instanceof Date) {
+      startTime = startTimeOrDate;
+      endTime = endTimeOrTime;
+    } else {
+      // Fallback: parse as ISO strings
+      startTime = new Date(startTimeOrDate as string);
+      endTime = new Date(endTimeOrTime as string);
+    }
+
+    if (startTime >= endTime) {
       throw new AppError('Start time must be strictly before end time', 400);
     }
 
@@ -38,12 +74,15 @@ export class AvailabilityService {
     });
 
     const isAvailable = overlappingBookings.length === 0 && overlappingMaintenances.length === 0;
+    const date = startTime.toISOString().split('T')[0];
 
     return {
       spaceId,
       spaceName: space.name,
-      startTime,
-      endTime,
+      date,
+      startTime: toHHMM(startTime),
+      endTime: toHHMM(endTime),
+      available: isAvailable,
       isAvailable,
       conflicts: {
         bookingsCount: overlappingBookings.length,
@@ -60,8 +99,10 @@ export class AvailabilityService {
     }
 
     const targetDate = targetDateStr ? new Date(targetDateStr) : new Date();
-    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
     const bookings = await prisma.booking.findMany({
       where: {
@@ -82,28 +123,47 @@ export class AvailabilityService {
       select: { id: true, startTime: true, endTime: true, reason: true },
     });
 
+    const available = bookings.length === 0 && maintenances.length === 0;
+    const dateStr = startOfDay.toISOString().split('T')[0];
+
     return {
-      space: { id: space.id, name: space.name, capacity: space.capacity, pricePerHour: space.pricePerHour },
-      date: startOfDay.toISOString().split('T')[0],
-      bookings,
-      maintenances,
-      totalOccupiedWindows: bookings.length + maintenances.length,
+      spaceId,
+      date: dateStr,
+      available,
+      bookedSlots: bookings.map((b) => ({
+        id: b.id,
+        startTime: toHHMM(b.startTime),
+        endTime: toHHMM(b.endTime),
+        status: b.status,
+      })),
+      blockedSlots: maintenances.map((m) => ({
+        id: m.id,
+        startTime: toHHMM(m.startTime),
+        endTime: toHHMM(m.endTime),
+        reason: m.reason ?? null,
+      })),
     };
   }
 
   // 13. View Available Time Slots
-  static async getAvailableTimeSlots(spaceId: string, targetDateStr?: string, slotDurationMinutes: number = 60) {
+  static async getAvailableTimeSlots(
+    spaceId: string,
+    targetDateStr?: string,
+    slotDurationMinutes: number = 60
+  ) {
     const space = await prisma.space.findUnique({ where: { id: spaceId } });
     if (!space) {
       throw new AppError('Co-working space not found', 404);
     }
 
     const baseDate = targetDateStr ? new Date(targetDateStr) : new Date();
-    const operatingStartHour = 8;  // 08:00 AM
+    const operatingStartHour = 8; // 08:00 AM
     const operatingEndHour = 20;  // 08:00 PM
 
-    const dayStart = new Date(baseDate.setHours(operatingStartHour, 0, 0, 0));
-    const dayEnd = new Date(baseDate.setHours(operatingEndHour, 0, 0, 0));
+    const dayStart = new Date(baseDate);
+    dayStart.setHours(operatingStartHour, 0, 0, 0);
+    const dayEnd = new Date(baseDate);
+    dayEnd.setHours(operatingEndHour, 0, 0, 0);
 
     const bookings = await prisma.booking.findMany({
       where: {
@@ -122,7 +182,7 @@ export class AvailabilityService {
       },
     });
 
-    const slots: Array<{ slot: string; startTime: string; endTime: string; isAvailable: boolean }> = [];
+    const slots: Array<{ startTime: string; endTime: string; available: boolean }> = [];
     let currentSlotStart = new Date(dayStart);
 
     while (currentSlotStart.getTime() + slotDurationMinutes * 60 * 1000 <= dayEnd.getTime()) {
@@ -131,20 +191,15 @@ export class AvailabilityService {
       const hasBookingConflict = bookings.some(
         (b) => b.startTime < currentSlotEnd && b.endTime > currentSlotStart
       );
-
       const hasMaintenanceConflict = maintenances.some(
         (m) => m.startTime < currentSlotEnd && m.endTime > currentSlotStart
       );
-
-      const isAvailable = !hasBookingConflict && !hasMaintenanceConflict;
-
-      const formatTime = (d: Date) => d.toTimeString().substring(0, 5);
+      const available = !hasBookingConflict && !hasMaintenanceConflict;
 
       slots.push({
-        slot: `${formatTime(currentSlotStart)} - ${formatTime(currentSlotEnd)}`,
-        startTime: currentSlotStart.toISOString(),
-        endTime: currentSlotEnd.toISOString(),
-        isAvailable,
+        startTime: toHHMM(currentSlotStart),
+        endTime: toHHMM(currentSlotEnd),
+        available,
       });
 
       currentSlotStart = new Date(currentSlotStart.getTime() + slotDurationMinutes * 60 * 1000);
@@ -152,18 +207,19 @@ export class AvailabilityService {
 
     return {
       spaceId,
-      spaceName: space.name,
       date: dayStart.toISOString().split('T')[0],
-      totalSlots: slots.length,
-      availableSlotsCount: slots.filter((s) => s.isAvailable).length,
       slots,
     };
   }
 
   // 14. View Availability Calendar
   static async getCalendar(spaceId?: string, startDateStr?: string, endDateStr?: string) {
-    const startDate = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const endDate = endDateStr ? new Date(endDateStr) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const startDate = startDateStr
+      ? new Date(startDateStr)
+      : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const endDate = endDateStr
+      ? new Date(endDateStr)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     const bookingWhere: Prisma.BookingWhereInput = {
       status: { in: ['APPROVED', 'PENDING'] },

@@ -1,10 +1,16 @@
 import { z } from 'zod';
 
+const flexibleTime = z.string().refine(
+  (v) => /^\d{2}:\d{2}$/.test(v) || /^\d{4}-\d{2}-\d{2}T/.test(v),
+  { message: 'Time must be ISO datetime or HH:MM format' }
+);
+
 export const checkAvailabilitySchema = z.object({
   body: z.object({
     spaceId: z.string().uuid('Invalid space ID format'),
-    startTime: z.string().datetime({ message: 'Invalid ISO 8601 start time format' }),
-    endTime: z.string().datetime({ message: 'Invalid ISO 8601 end time format' }),
+    date: z.string().optional(),
+    startTime: flexibleTime,
+    endTime: flexibleTime,
   }),
 });
 
