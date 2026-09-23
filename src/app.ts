@@ -57,8 +57,11 @@ app.get('/health', (_req: Request, res: Response) => {
 // Mount Feature Modules Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/admin/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
+app.use('/api/admin/roles', rolesRoutes);
 app.use('/api/permissions', permissionsRoutes);
+app.use('/api/admin/permissions', permissionsRoutes);
 app.use('/api/spaces', spacesRoutes);
 app.use('/api/admin', adminSpacesRouter);
 app.use('/api/admin', adminBookingsRouter);
@@ -66,6 +69,8 @@ app.use('/api', availabilityRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api', bookingsRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/admin/maintenance', maintenanceRoutes);
+app.use('/api/admin/dashboard', dashboardRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Handle Unhandled Routes
